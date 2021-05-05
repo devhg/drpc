@@ -1,6 +1,7 @@
 package drpc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 type Call struct {
@@ -153,10 +155,16 @@ func (c *Client) receive() {
 
 // Call 是客户端暴露给用户的RPC服务调用接口，它是对 Go 的封装。
 // 阻塞等待call.Done()，等待响应返回，是一个同步接口
-func (c *Client) Call(serviceMethod string, args, reply interface{}) error {
-	done := c.Go(serviceMethod, args, reply, make(chan *Call, 1)).Done
-	call := <-done
-	return call.Error
+// Client.Call 的超时处理机制，使用 context 包实现，控制权交给用户，控制更为灵活。
+func (c *Client) Call(ctx context.Context, serviceMethod string, args, reply interface{}) error {
+	call := c.Go(serviceMethod, args, reply, make(chan *Call, 1))
+	select {
+	case <-ctx.Done():
+		c.removeCall(call.Seq)
+		return errors.New("rpc client: call failed: " + ctx.Err().Error())
+	case call := <-call.Done:
+		return call.Error
+	}
 }
 
 // Go 是客户端暴露给用户的RPC服务调用接口，与 Call 不同的是，
@@ -205,24 +213,60 @@ func (c *Client) send(call *Call) {
 	}
 }
 
+// Dial connects to an RPC server at the specified network address
 func Dial(network, addr string, opts ...*Option) (client *Client, err error) {
+	return dialTimeout(NewClient, network, addr, opts...)
+}
+
+type newClientFunc func(conn net.Conn, opt *Option) (*Client, error)
+
+type clientResult struct {
+	client *Client
+	err    error
+}
+
+// 在这里实现了一个超时处理的外壳 dialTimeout，
+// 这个壳将 NewClient 作为入参，在 2 个地方添加了超时处理的机制。
+// 1)将 net.Dial 替换为 net.DialTimeout，如果连接创建超时，将返回错误。
+// 2)使用子协程执行 NewClient，执行完成后则通过信道 ch 发送结果，
+// 	 如果 time.After() 信道先接收到消息，则说明 NewClient 执行超时，返回错误。
+func dialTimeout(f newClientFunc, network, addr string, opts ...*Option) (client *Client, err error) {
 	option, err := parseOptions(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	conn, err := net.Dial(network, addr)
+	conn, err := net.DialTimeout(network, addr, option.ConnectTimeout)
 	if err != nil {
 		return nil, err
 	}
 
-	// close the connection if client is nil
+	// close the connection if err is not nil
 	defer func() {
-		if client == nil {
+		if err != nil {
 			_ = conn.Close()
 		}
 	}()
-	return NewClient(conn, option)
+
+	ch := make(chan clientResult)
+	go func() {
+		client, err := f(conn, option)
+		ch <- clientResult{client, err}
+	}()
+
+	// block if ConnectTimout is equal with zero
+	if option.ConnectTimeout == 0 {
+		result := <-ch
+		return result.client, result.err
+	}
+
+	// no block else
+	select {
+	case <-time.After(option.ConnectTimeout):
+		return nil, fmt.Errorf("rpc client: connect timeout")
+	case result := <-ch:
+		return result.client, result.err
+	}
 }
 
 func parseOptions(opts ...*Option) (*Option, error) {
