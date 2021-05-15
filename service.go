@@ -14,11 +14,11 @@ type methodType struct {
 	method   reflect.Method // 方法本身 func Foo(r *xxx.Request, resp *xxx.Response) error {}
 	ArgType  reflect.Type   // 第一个参数 => *xxx.Request
 	RetType  reflect.Type   // 第二个参数 => *xxx.Response
-	numCalls uint64         // 统计函数调用次数（用于限流）
+	NumCalls uint64         // 统计函数调用次数（用于限流）
 }
 
-func (m *methodType) NumCalls() uint64 {
-	return atomic.LoadUint64(&m.numCalls)
+func (m *methodType) GetNumCalls() uint64 {
+	return atomic.LoadUint64(&m.NumCalls)
 }
 
 func (m *methodType) newArgv() reflect.Value {
@@ -112,7 +112,7 @@ func isExportedOrBuiltinType(t reflect.Type) bool {
 }
 
 func (s *service) call(mTyp *methodType, argV, retV reflect.Value) error {
-	atomic.AddUint64(&mTyp.numCalls, 1)
+	atomic.AddUint64(&mTyp.NumCalls, 1)
 	f := mTyp.method.Func
 
 	// 反射调用函数

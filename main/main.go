@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"github.com/devhg/drpc"
 	"log"
 	"net"
+	"net/http"
 	"sync"
+	"time"
 )
 
 type Foo int
@@ -18,27 +21,36 @@ func (f Foo) Sum(args Args, reply *int) error {
 
 func startServer(addr chan string) {
 	var foo Foo
-	if err := drpc.Register(&foo); err != nil {
-		log.Fatal("register error: ", err)
-	}
+	l, _ := net.Listen("tcp", ":9999")
+	_ = drpc.Register(&foo)
+	drpc.HandleHTTP()
+	addr <- l.Addr().String()
+	_ = http.Serve(l, nil)
 
-	// pick a free port
-	listen, err := net.Listen("tcp", ":0")
-	if err != nil {
-		log.Fatal("network error:", err)
-	}
-	log.Println("start rpc server on", listen.Addr())
-	addr <- listen.Addr().String()
-	drpc.Accept(listen)
+	//var foo Foo
+	//
+	//// pick a free port
+	//listen, err := net.Listen("tcp", ":9990")
+	//if err != nil {
+	//	log.Fatal("network error:", err)
+	//}
+	//
+	//if err := drpc.Register(&foo); err != nil {
+	//	log.Fatal("register error: ", err)
+	//}
+	//
+	//drpc.HandleHTTP()
+	//log.Println("start rpc server on", listen.Addr())
+	//
+	//addr <- listen.Addr().String()
+	//_ = http.Serve(listen, nil)
 }
 
-func main() {
-	addr := make(chan string)
-	go startServer(addr)
-
-	client, _ := drpc.Dial("tcp", <-addr)
+func call(addr chan string) {
+	client, _ := drpc.DialHTTP("tcp", <-addr)
 	defer func() { _ = client.Close() }()
 
+	time.Sleep(time.Second)
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
@@ -47,11 +59,17 @@ func main() {
 
 			args := Args{i, i * i}
 			var reply int
-			if err := client.Call("Foo.Sum", args, &reply); err != nil {
+			if err := client.Call(context.Background(), "Foo.Sum", args, &reply); err != nil {
 				log.Fatal("call Foo.Sum error:", err)
 			}
 			log.Printf("%d + %d = %d", args.Num1, args.Num2, reply)
 		}(i)
 	}
 	wg.Wait()
+}
+
+func main() {
+	addr := make(chan string)
+	go call(addr)
+	startServer(addr)
 }

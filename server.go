@@ -8,13 +8,19 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 )
 
-const MagicNumber = 0x3bef5c
+const (
+	MagicNumber      = 0x3bef5c
+	connected        = "200 Connected to drpc"
+	defaultRPCPath   = "/_drpc_"
+	defaultDebugPath = "/debug/drpc"
+)
 
 // 报文形式
 // | Option{MagicNumber: xxx, CodecType: xxx} | Header{ServiceMethod ...} | Body interface{} |
@@ -197,6 +203,11 @@ func (server *Server) readRequest(cc codec.Codec) (*request, error) {
 	return req, nil
 }
 
+// 这里需要确保 sendResponse 仅调用一次，因此将整个过程拆分为 called 和 sent 两个阶段，
+// 在这段代码中只会发生如下两种情况：
+// 1) called 信道接收到消息，代表处理没有超时，继续执行 sendResponse。
+// 2) time.After() 先于 called 接收到消息，说明处理已经超时，called 和 sent 都将被阻塞。
+//    在 case <-time.After(timeout) 处调用 sendResponse。
 func (server *Server) handleRequest(cc codec.Codec, req *request,
 	sending *sync.Mutex, wg *sync.WaitGroup, timeout time.Duration) {
 	defer wg.Done()
@@ -238,4 +249,39 @@ func (server *Server) sendResponse(cc codec.Codec, h *codec.Header,
 	if err := cc.Write(h, body); err != nil {
 		log.Println("rpc server: write response error:", err)
 	}
+}
+
+// Server support HTTP Protocol
+func (server *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodConnect {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = io.WriteString(w, "405 must CONNECT\n")
+		return
+	}
+	// The Hijacker interface is implemented by ResponseWriters that allow
+	// an HTTP handler to take over the connection.
+	// 新建一个handler来接管此连接
+	conn, _, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		log.Println("rpc hijacking ", req.RemoteAddr, ": ", err.Error())
+		return
+	}
+
+	// 这里是给新的 connection 发送回复
+	_, _ = io.WriteString(conn, "HTTP/1.0 "+connected+"\n\n")
+	server.ServeConn(conn)
+}
+
+// HandleHTTP registers an HTTP handler for RPC messages on defaultRPCPath.
+// It is still necessary to invoke http.Serve(), typically in a go statement.
+func (server *Server) HandleHTTP() {
+	http.Handle(defaultRPCPath, server)
+	http.Handle(defaultDebugPath, debugHTTP{server})
+	log.Println("rpc server: debug path:", defaultDebugPath)
+}
+
+// HandleHTTP is a convenient approach for default server to register HTTP handlers
+func HandleHTTP() {
+	DefaultServer.HandleHTTP()
 }
