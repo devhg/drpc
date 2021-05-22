@@ -122,7 +122,7 @@ func TestMethodType_Call(t *testing.T) {
 	argv.Set(reflect.ValueOf(Args{1, 3}))
 
 	err := s.call(mType, argv, retv)
-	assert(err == nil && *retv.Interface().(*int) == 4 && mType.numCalls == 1,
+	assert(err == nil && *retv.Interface().(*int) == 4 && mType.NumCalls == 1,
 		"Failed to call Foo.Sum")
 }
 
