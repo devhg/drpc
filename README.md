@@ -40,3 +40,38 @@ Go 语言广泛地应用于云计算和微服务，成熟的 RPC 框架和微服
 balance)、超时处理(timeout processing)等特性。分七天完成，最终代码约 1000 行。
 
 > https://geektutu.com/post/geerpc.html
+
+
+### 4. log
+```
+2021/05/23 17:06:32 rpc registry path:  /_drpc_/registry
+2021/05/23 17:06:33 rpc server: register Foo.Sleep
+2021/05/23 17:06:33 rpc server: register Foo.Sum
+2021/05/23 17:06:33 rpc server: register Foo.Sleep
+2021/05/23 17:06:33 rpc server: register Foo.Sum
+2021/05/23 17:06:33 tcp@[::]:57815 send heart beat to registry http://localhost:9999/_drpc_/registry
+2021/05/23 17:06:33 tcp@[::]:57814 send heart beat to registry http://localhost:9999/_drpc_/registry
+2021/05/23 17:06:33 rpc registry: putServer=tcp@[::]:57814, Numbers=2
+2021/05/23 17:06:33 rpc registry: putServer=tcp@[::]:57815, Numbers=1
+2021/05/23 17:06:34 rpc registry: refresh servers from registry: http://localhost:9999/_drpc_/registry 0
+2021/05/23 17:06:34 [tcp@[::]:57814 tcp@[::]:57815]
+2021/05/23 17:06:34 call Foo.Sum success: 0 + 0 = 0
+2021/05/23 17:06:34 call Foo.Sum success: 1 + 1 = 2
+2021/05/23 17:06:34 call Foo.Sum success: 3 + 9 = 12
+2021/05/23 17:06:34 call Foo.Sum success: 2 + 4 = 6
+2021/05/23 17:06:34 call Foo.Sum success: 4 + 16 = 20
+2021/05/23 17:06:34 rpc registry: refresh servers from registry: http://localhost:9999/_drpc_/registry 0
+2021/05/23 17:06:34 [tcp@[::]:57814 tcp@[::]:57815]
+2021/05/23 17:06:34 broadcast Foo.Sum success: 4 + 16 = 20
+2021/05/23 17:06:34 broadcast Foo.Sum success: 0 + 0 = 0
+2021/05/23 17:06:34 broadcast Foo.Sum success: 1 + 1 = 2
+2021/05/23 17:06:34 broadcast Foo.Sum success: 3 + 9 = 12
+2021/05/23 17:06:34 broadcast Foo.Sum success: 2 + 4 = 6
+2021/05/23 17:06:34 broadcast Foo.Sleep success: 0 + 0 = 0
+2021/05/23 17:06:35 broadcast Foo.Sleep success: 1 + 1 = 2
+2021/05/23 17:06:36 broadcast Foo.Sleep error: rpc client: call failed: context deadline exceeded
+2021/05/23 17:06:36 broadcast Foo.Sleep error: rpc client: call failed: context deadline exceeded
+2021/05/23 17:06:36 broadcast Foo.Sleep error: rpc client: call failed: context deadline exceeded
+2021/05/23 17:06:36 rpc server: read header error: read tcp [::1]:57815->[::1]:57820: read: connection reset by peer
+2021/05/23 17:06:36 rpc server: read header error: read tcp [::1]:57814->[::1]:57821: read: connection reset by peer
+```

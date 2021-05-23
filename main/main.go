@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/devhg/drpc"
+	"github.com/devhg/drpc/registry"
 	"github.com/devhg/drpc/xclient"
 	"log"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -26,29 +27,8 @@ func (f Foo) Sleep(args Args, reply *int) error {
 	return nil
 }
 
-func startServer(addr chan string) {
-	var foo Foo
-	// pick a free port
-	listen, err := net.Listen("tcp", ":0")
-	if err != nil {
-		log.Fatal("network error:", err)
-	}
-	server := drpc.NewServer()
-	if err := server.Register(&foo); err != nil {
-		log.Fatal("register error: ", err)
-	}
-
-	log.Println("start rpc server on", listen.Addr())
-	addr <- listen.Addr().String()
-	server.Accept(listen)
-}
-
-func call(addr1, addr2 string) {
-	fmt.Println(addr1, addr2)
-	discovery := xclient.NewMultiServerDiscovery([]string{
-		"tcp@" + addr1,
-		"tcp@" + addr2,
-	})
+func call(registry string) {
+	discovery := xclient.NewDrpcRegistryDiscovery(registry, 0)
 	client := xclient.NewXClient(discovery, xclient.RandomSelect, nil)
 	defer func() { _ = client.Close() }()
 
@@ -64,11 +44,8 @@ func call(addr1, addr2 string) {
 	wg.Wait()
 }
 
-func broadcast(addr1, addr2 string) {
-	discovery := xclient.NewMultiServerDiscovery([]string{
-		"tcp@" + addr1,
-		"tcp@" + addr2,
-	})
+func broadcast(registry string) {
+	discovery := xclient.NewDrpcRegistryDiscovery(registry, 0)
 	client := xclient.NewXClient(discovery, xclient.RandomSelect, nil)
 	defer func() { _ = client.Close() }()
 
@@ -103,14 +80,37 @@ func foo(ctx context.Context, xc *xclient.XClient, typ, serviceMethod string, ar
 	}
 }
 
-func main() {
-	ch1 := make(chan string)
-	ch2 := make(chan string)
-	go startServer(ch1)
-	go startServer(ch2)
+func startRegistry(wg *sync.WaitGroup) {
+	listen, _ := net.Listen("tcp", ":9999")
+	registry.HandleHTTP()
+	wg.Done()
+	_ = http.Serve(listen, nil)
+}
 
-	addr1 := <-ch1
-	addr2 := <-ch2
-	call(addr1, addr2)
-	broadcast(addr1, addr2)
+func startServer(registryAddr string, wg *sync.WaitGroup) {
+	var foo Foo
+	listen, _ := net.Listen("tcp", ":0")
+	server := drpc.NewServer()
+	_ = server.Register(&foo)
+	registry.Heartbeat(registryAddr, "tcp@"+listen.Addr().String(), 0)
+	wg.Done()
+	server.Accept(listen)
+}
+
+func main() {
+	registryAddr := "http://localhost:9999/_drpc_/registry"
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go startRegistry(&wg)
+	wg.Wait()
+
+	time.Sleep(time.Second)
+	wg.Add(2)
+	go startServer(registryAddr, &wg)
+	go startServer(registryAddr, &wg)
+	wg.Wait()
+
+	time.Sleep(time.Second)
+	call(registryAddr)
+	broadcast(registryAddr)
 }
