@@ -106,29 +106,6 @@ func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 	server.ServeCodec(cc, opt.HandleTimeout)
 }
 
-func (server *Server) findService(serviceMethod string) (servci *service, mTyp *methodType, err error) {
-	dot := strings.LastIndex(serviceMethod, ".")
-	if dot < 0 {
-		err = errors.New("rpc server: service/method request illegal-formed: " + serviceMethod)
-		return
-	}
-
-	serviceName, methodName := serviceMethod[:dot], serviceMethod[dot+1:]
-	serviceInter, ok := server.serviceMap.Load(serviceName)
-	if !ok {
-		err = errors.New("rpc server: can't find service: " + serviceName)
-		return
-	}
-
-	servci = serviceInter.(*service)
-	mTyp = servci.method[methodName]
-	if mTyp == nil {
-		err = errors.New("rpc server: can't find method: " + methodName)
-		return
-	}
-	return
-}
-
 var invalidRequest = struct{}{}
 
 func (server *Server) ServeCodec(cc codec.Codec, timeout time.Duration) {
@@ -164,17 +141,6 @@ type request struct {
 	servci *service
 }
 
-func (server *Server) readRequestHeader(cc codec.Codec) (*codec.Header, error) {
-	var h codec.Header
-	if err := cc.ReadHeader(&h); err != nil {
-		if err != io.EOF && err != io.ErrUnexpectedEOF {
-			log.Println("rpc server: read header error:", err)
-		}
-		return nil, err
-	}
-	return &h, nil
-}
-
 func (server *Server) readRequest(cc codec.Codec) (*request, error) {
 	header, err := server.readRequestHeader(cc)
 	if err != nil {
@@ -201,6 +167,40 @@ func (server *Server) readRequest(cc codec.Codec) (*request, error) {
 		return req, err
 	}
 	return req, nil
+}
+
+func (server *Server) readRequestHeader(cc codec.Codec) (*codec.Header, error) {
+	var h codec.Header
+	if err := cc.ReadHeader(&h); err != nil {
+		if err != io.EOF && err != io.ErrUnexpectedEOF {
+			log.Println("rpc server: read header error:", err)
+		}
+		return nil, err
+	}
+	return &h, nil
+}
+
+func (server *Server) findService(serviceMethod string) (servci *service, mTyp *methodType, err error) {
+	dot := strings.LastIndex(serviceMethod, ".")
+	if dot < 0 {
+		err = errors.New("rpc server: service/method request illegal-formed: " + serviceMethod)
+		return
+	}
+
+	serviceName, methodName := serviceMethod[:dot], serviceMethod[dot+1:]
+	serviceInter, ok := server.serviceMap.Load(serviceName)
+	if !ok {
+		err = errors.New("rpc server: can't find service: " + serviceName)
+		return
+	}
+
+	servci = serviceInter.(*service)
+	mTyp = servci.method[methodName]
+	if mTyp == nil {
+		err = errors.New("rpc server: can't find method: " + methodName)
+		return
+	}
+	return
 }
 
 // 这里需要确保 sendResponse 仅调用一次，因此将整个过程拆分为 called 和 sent 两个阶段，
