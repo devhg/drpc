@@ -8,6 +8,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	_ "net/rpc"
+	_ "net/rpc/jsonrpc"
 	"sync"
 	"time"
 )
@@ -27,6 +29,29 @@ func (f Foo) Sleep(args Args, reply *int) error {
 	return nil
 }
 
+//////////////////////////////////////////////////////////////
+
+func foo(ctx context.Context, xc *xclient.XClient, typ, serviceMethod string, args *Args) {
+	var reply int
+	var err error
+
+	switch typ {
+	case "call":
+		err = xc.Call(ctx, serviceMethod, args, &reply)
+	case "broadcast":
+		err = xc.BroadCast(ctx, serviceMethod, args, &reply)
+	}
+
+	if err != nil {
+		log.Printf("%s %s error: %v", typ, serviceMethod, err)
+	} else {
+		log.Printf("%s %s success: %d + %d = %d", typ, serviceMethod, args.Num1, args.Num2, reply)
+	}
+}
+
+// call rpc调用
+// 1. 创建一个支持负载均衡服务发现的注册中心
+// 2. 创建一个 XClient 复用之前的所有模块
 func call(registry string) {
 	discovery := xclient.NewDrpcRegistryDiscovery(registry, 0)
 	client := xclient.NewXClient(discovery, xclient.RandomSelect, nil)
@@ -44,6 +69,8 @@ func call(registry string) {
 	wg.Wait()
 }
 
+// broadcast rpc广播
+// 同 call
 func broadcast(registry string) {
 	discovery := xclient.NewDrpcRegistryDiscovery(registry, 0)
 	client := xclient.NewXClient(discovery, xclient.RandomSelect, nil)
@@ -64,22 +91,7 @@ func broadcast(registry string) {
 	wg.Wait()
 }
 
-func foo(ctx context.Context, xc *xclient.XClient, typ, serviceMethod string, args *Args) {
-	var reply int
-	var err error
-	switch typ {
-	case "call":
-		err = xc.Call(ctx, serviceMethod, args, &reply)
-	case "broadcast":
-		err = xc.BroadCast(ctx, serviceMethod, args, &reply)
-	}
-	if err != nil {
-		log.Printf("%s %s error: %v", typ, serviceMethod, err)
-	} else {
-		log.Printf("%s %s success: %d + %d = %d", typ, serviceMethod, args.Num1, args.Num2, reply)
-	}
-}
-
+// startRegistry 开启一个注册中心
 func startRegistry(wg *sync.WaitGroup) {
 	listen, _ := net.Listen("tcp", ":9999")
 	registry.HandleHTTP()
@@ -87,6 +99,7 @@ func startRegistry(wg *sync.WaitGroup) {
 	_ = http.Serve(listen, nil)
 }
 
+// startServer 开启服务server，多次调用开启多台服务
 func startServer(registryAddr string, wg *sync.WaitGroup) {
 	var foo Foo
 	listen, _ := net.Listen("tcp", ":0")

@@ -69,7 +69,7 @@ package main
 //	wg.Wait()
 //}
 //
-//func main() {
+//func demo() {
 //	addr := make(chan string)
 //	go call(addr)
 //	startServer(addr)

@@ -104,7 +104,7 @@ package main
 //	}
 //}
 //
-//func main() {
+//func demo() {
 //	ch1 := make(chan string)
 //	ch2 := make(chan string)
 //	go startServer(ch1)
