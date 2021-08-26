@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/devhg/drpc/codec"
 	"io"
 	"log"
 	"net"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/devhg/drpc/codec"
 )
 
 type Call struct {
@@ -296,6 +297,11 @@ func NewHTTPClient(conn net.Conn, opt *Option) (*Client, error) {
 	// Require successful HTTP response
 	// before switching to RPC protocol
 	resp, err := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: "CONNECT"})
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
 	if err == nil && resp.Status == connected {
 		return NewClient(conn, opt)
 	}

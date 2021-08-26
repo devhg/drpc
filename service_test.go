@@ -38,7 +38,7 @@ func TestReflect(t *testing.T) {
 func TestReflectNew(t *testing.T) {
 	var a = 10
 	var aa = reflect.TypeOf(a)
-	//var bb = reflect.TypeOf(&a)
+	// var bb = reflect.TypeOf(&a)
 	var bb = reflect.TypeOf(a)
 	fmt.Println(aa)
 	fmt.Println(bb)
@@ -47,7 +47,7 @@ func TestReflectNew(t *testing.T) {
 	if bb.Kind() == reflect.Ptr {
 		fmt.Println(bb)
 		fmt.Println(bb.Elem())
-		//arg = reflect.New(bb) 不能使用这种，因为reflect.New()默认创建的是指针格式
+		// arg = reflect.New(bb) 不能使用这种，因为reflect.New()默认创建的是指针格式
 		arg = reflect.New(bb.Elem()) // bb=*int ->  bb.Elem()=int -> reflect.New(bb.Elem())=*int
 	} else {
 		arg = reflect.New(bb)
@@ -75,7 +75,7 @@ func TestError(t *testing.T) {
 	mType := method.Type
 	fmt.Println(mType.Out(0))
 	//
-	//var a = (*error)(nil)
+	// var a = (*error)(nil)
 	typ1 := reflect.TypeOf((*error)(nil)).Elem()
 	fmt.Println(typ1)
 }

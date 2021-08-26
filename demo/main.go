@@ -2,9 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/devhg/drpc"
-	"github.com/devhg/drpc/registry"
-	"github.com/devhg/drpc/xclient"
 	"log"
 	"net"
 	"net/http"
@@ -12,6 +9,10 @@ import (
 	_ "net/rpc/jsonrpc"
 	"sync"
 	"time"
+
+	"github.com/devhg/drpc"
+	"github.com/devhg/drpc/registry"
+	"github.com/devhg/drpc/xclient"
 )
 
 type Foo int
@@ -29,7 +30,7 @@ func (f Foo) Sleep(args Args, reply *int) error {
 	return nil
 }
 
-//////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////
 
 func foo(ctx context.Context, xc *xclient.XClient, typ, serviceMethod string, args *Args) {
 	var reply int

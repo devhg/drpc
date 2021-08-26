@@ -2,10 +2,11 @@ package xclient
 
 import (
 	"context"
-	. "github.com/devhg/drpc"
 	"io"
 	"reflect"
 	"sync"
+
+	. "github.com/devhg/drpc"
 )
 
 // XClient is a client that supports load balance
@@ -101,6 +102,7 @@ func (xc *XClient) BroadCast(ctx context.Context, serviceMethod string, args, re
 	var e error
 	replyDone := ret == nil // if reply is nil, don't need to set value  妙阿。好活
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// todo 待研究
 	for _, rpcAddr := range servers {

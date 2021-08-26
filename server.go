@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/devhg/drpc/codec"
 	"io"
 	"log"
 	"net"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/devhg/drpc/codec"
 )
 
 const (
@@ -109,8 +110,8 @@ func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 var invalidRequest = struct{}{}
 
 func (server *Server) ServeCodec(cc codec.Codec, timeout time.Duration) {
-	//var sending *sync.Mutex // make sure to send a complete response
-	//var wg *sync.WaitGroup
+	// var sending *sync.Mutex // make sure to send a complete response
+	// var wg *sync.WaitGroup
 
 	// 不能使用上面的，因为这样传参会传输nil ！！！！本函数直接使用的话是延迟初始化，没有问题。
 	sending := new(sync.Mutex) // make sure to send a complete response

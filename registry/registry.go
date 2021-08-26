@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"sort"
@@ -111,11 +112,14 @@ func Heartbeat(registry, addr string, duration time.Duration) {
 func sendHeartbeat(registry, addr string) error {
 	log.Println(addr, "send heart beat to registry", registry)
 	client := &http.Client{}
-	req, _ := http.NewRequest(http.MethodPost, registry, nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, registry, nil)
 	req.Header.Set("X-Drpc-Server", addr)
-	if _, err := client.Do(req); err != nil {
+
+	resp, err := client.Do(req)
+	if err != nil {
 		log.Println("rpc server: heart beat err: ", err)
 		return err
 	}
+	defer resp.Body.Close()
 	return nil
 }

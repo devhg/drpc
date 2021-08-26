@@ -11,11 +11,11 @@ import (
 	"time"
 )
 
-//func assert(condition bool, msg string, v ...interface{}) {
-//	if !condition {
-//		panic(fmt.Sprintf("assertion failed: "+msg, v...))
-//	}
-//}
+// func assert(condition bool, msg string, v ...interface{}) {
+// 	if !condition {
+// 		panic(fmt.Sprintf("assertion failed: "+msg, v...))
+// 	}
+// }
 
 // 用于测试连接超时。NewClient 函数耗时 2s，ConnectionTimeout 分别设置为 1s 和 0 两种场景。
 func TestClient_dialTimeout(t *testing.T) {
@@ -43,7 +43,7 @@ func TestClient_dialTimeout(t *testing.T) {
 }
 
 // 用于测试处理超时。 Bar.Timeout 耗时 2s，
-//场景一：客户端设置超时时间为 1s，服务端无限制；场景二，服务端设置超时时间为1s，客户端无限制。
+// 场景一：客户端设置超时时间为 1s，服务端无限制；场景二，服务端设置超时时间为1s，客户端无限制。
 type Bar int
 
 func (b Bar) Timeout(argv int, reply *int) error {

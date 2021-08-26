@@ -52,6 +52,7 @@ func (dr *DrpcRegistryDiscovery) Refresh() error {
 		log.Println("rpc registry refresh err:", err)
 		return err
 	}
+	defer resp.Body.Close()
 
 	servers := strings.Split(resp.Header.Get("X-Drpc-Servers"), ",")
 	log.Println(servers)
